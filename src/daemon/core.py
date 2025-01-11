@@ -37,7 +37,7 @@ class BeatriceDaemon:
             return
             
         try:
-            self._start_time = datetime.utcnow()
+            self._start_time = datetime.now(datetime.UTC)
             self._is_running = True
             self.logger.info("Beatrice Daemon starting...")
             
@@ -95,7 +95,6 @@ class BeatriceDaemon:
                 
     @property
     def uptime(self) -> Optional[float]:
-        """Returns the uptime of the daemon in seconds."""
         if self._start_time is None:
             return None
-        return (datetime.utcnow() - self._start_time).total_seconds()
+        return (datetime.now(datetime.UTC) - self._start_time).total_seconds()
