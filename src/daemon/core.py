@@ -41,6 +41,14 @@ class BeatriceDaemon:
             self._is_running = True
             self.logger.info("Beatrice Daemon starting...")
 
+
+self._register_signal_handlers()
+ # Main loop
+  while self._is_running:
+                await self._run_service_checks()
+                await asyncio.sleep(1)  # 1 second delay for main loop
+
+
               except Exception as e:
             self.logger.error(f"Fatal error in daemon: {str(e)}")
             await self.stop()
@@ -50,3 +58,15 @@ class BeatriceDaemon:
         """Stops the daemon and cleans up resources."""
         if not self._is_running:
             return
+
+            self.logger.info("Beatrice Daemon stopping...")
+        self._is_running = False
+
+         for service_name, service in self.services.items():
+            try:
+                await service.stop()
+                self.logger.info(f"Service {service_name} stopped")
+            except Exception as e:
+                self.logger.error(f"Error stopping service {service_name}: {str(e)}")
+                
+        self.logger.info("Beatrice Daemon stopped")
