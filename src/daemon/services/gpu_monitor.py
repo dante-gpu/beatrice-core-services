@@ -8,12 +8,12 @@ from datetime import datetime
 # you'd want to use specific libraries based on the GPU vendor
 try:
     import nvidia_smi
+    nvidia_smi.nvmlInit()
     NVIDIA_AVAILABLE = True
 except ImportError:
     NVIDIA_AVAILABLE = False
 
 from ...daemon.service import BaseService, ServiceHealth, ServiceState
-
 """
 GPU Monitoring Service Module
 ---------------------------
@@ -159,9 +159,6 @@ class GPUMonitorService(BaseService):
                 self.state = ServiceState.ERROR
                 return False
 
-            # Initialize NVIDIA SMI
-            nvidia_smi.nvmlInit()
-            
             # Start monitoring task
             self._monitoring_task = asyncio.create_task(self._monitoring_loop())
             self._start_time = datetime.utcnow()
@@ -287,13 +284,18 @@ class GPUMonitorService(BaseService):
                 metrics = GPUMetrics()
                 
                 # Collect detailed GPU metrics
-                metrics.temperature = nvidia_smi.nvmlDeviceGetTemperature(handle, nvidia_smi.NVML_TEMPERATURE_GPU)
-                metrics.utilization = nvidia_smi.nvmlDeviceGetUtilizationRates(handle).gpu
-                memory_info = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
-                metrics.memory_used = memory_info.used
-                metrics.memory_total = memory_info.total
-                metrics.power_usage = nvidia_smi.nvmlDeviceGetPowerUsage(handle) / 1000.0  # Convert to watts
-                metrics.fan_speed = nvidia_smi.nvmlDeviceGetFanSpeed(handle)
+                temp = nvidia_smi.nvmlDeviceGetTemperature(handle, nvidia_smi.NVML_TEMPERATURE_GPU)
+                util = nvidia_smi.nvmlDeviceGetUtilizationRates(handle)
+                mem = nvidia_smi.nvmlDeviceGetMemoryInfo(handle)
+                power = nvidia_smi.nvmlDeviceGetPowerUsage(handle)
+                fan = nvidia_smi.nvmlDeviceGetFanSpeed(handle)
+
+                metrics.temperature = temp
+                metrics.utilization = util.gpu
+                metrics.memory_used = mem.used
+                metrics.memory_total = mem.total
+                metrics.power_usage = power / 1000.0  # Convert to watts
+                metrics.fan_speed = fan
 
                 self._gpu_metrics[gpu_id] = metrics
 
