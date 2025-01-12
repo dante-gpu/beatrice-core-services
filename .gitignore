@@ -1,0 +1,98 @@
+# Python Virtual Environment
+venv/
+env/
+.env/
+.venv/
+ENV/
+
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# IDE - VSCode
+.vscode/
+*.code-workspace
+.history/
+
+# IDE - PyCharm
+.idea/
+*.iml
+*.iws
+.idea_modules/
+
+# IDE - Others
+*.swp
+*.swo
+*~
+
+# Testing
+.coverage
+htmlcov/
+.tox/
+.pytest_cache/
+.coverage.*
+coverage.xml
+*.cover
+
+# Logs
+*.log
+logs/
+log/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Project specific
+config.local.yaml
+*.local.yaml
+*.local.json
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*.swo
+
+# Documentation
+/site
+/docs/_build/
+
+# Dependencies
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Database
+*.db
+*.sqlite3
+*.sqlite
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# Profiling
+*.prof
+
+# Poetry
+poetry.lock
+
+# Node (if using any JavaScript tools)
+node_modules/ 
