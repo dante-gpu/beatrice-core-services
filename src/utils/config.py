@@ -31,7 +31,7 @@ class ConfigManager:
         self.config = {
             "autostart_minimized": False,
             "monitoring_interval": 1,
-            "marketplace_url": "https://api.dantegpu.market",
+            "marketplace_url": "https://api.dantegpu.market", # TODO: Change to actual marketplace url this is mock url :////
             "gpu_settings": {
                 "power_limit": 100,
                 "memory_offset": 0,
