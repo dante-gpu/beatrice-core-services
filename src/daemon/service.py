@@ -100,7 +100,8 @@ class BaseService(ABC):
             return False
             
         return True
-     async def recover(self) -> bool:
+    
+    async def recover(self) -> bool:
         """Attempts to recover service from failure state"""
         try:
             self.state = ServiceState.RECOVERING
