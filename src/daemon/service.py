@@ -37,7 +37,9 @@ class ServiceHealth:
 
 class BaseService(ABC):
     """
-    abstract methods are implemented in the subclasses. -@virjilakrum
+    Base service class that provides core functionality.
+    All abstract methods must be implemented by subclasses.
+    @virjilakrum: Initial implementation
     """
     def __init__(self, name: str, logger: Optional[logging.Logger] = None):
         self.name = name
@@ -98,3 +100,51 @@ class BaseService(ABC):
             return False
             
         return True
+     async def recover(self) -> bool:
+        """Attempts to recover service from failure state"""
+        try:
+            self.state = ServiceState.RECOVERING
+            self.logger.info(f"Attempting to recover service {self.name}")
+            
+            # First try to stop the service
+            await self.stop()
+            
+            # Brief pause before restart
+            await asyncio.sleep(1)
+            
+            # Attempt restart
+            success = await self.start()
+            
+            if success:
+                self.state = ServiceState.RUNNING
+                self.logger.info(f"Service {self.name} recovered successfully")
+                return True
+            else:
+                self.state = ServiceState.ERROR
+                self.logger.error(f"Service {self.name} recovery failed")
+                return False
+                
+        except Exception as e:
+            self.state = ServiceState.ERROR
+            self.logger.error(f"Recovery failed for service {self.name}: {str(e)}")
+            return False
+
+    @property
+    def uptime(self) -> Optional[float]:
+        """Returns service uptime in seconds"""
+        if self._start_time is None:
+            return None
+        return (datetime.utcnow() - self._start_time).total_seconds()
+
+    @property
+    def is_healthy(self) -> bool:
+        """Returns whether the service is in a healthy state"""
+        return self.state == ServiceState.RUNNING and self.health.status
+
+    @property
+    def is_critical(self) -> bool:
+        """Returns whether this is a critical service"""
+        return self._is_critical
+
+    def set_critical(self, value: bool = True):
+        """Sets the critical status of the service"""
