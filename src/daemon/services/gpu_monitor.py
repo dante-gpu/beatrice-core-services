@@ -40,13 +40,14 @@ Dependencies:
 - psutil: System resource monitoring
 - asyncio: Asynchronous operations
 
-Development Guidelines:
+Development Guidelines: @fybx @mehmethayirli @muhammedakinci
 - Always use async context managers for lock operations
 - Implement proper error handling for GPU operations
 - Maintain backward compatibility when adding new metrics
 - Document any vendor-specific implementation details
 - Add unit tests for new functionality
 - Follow error handling patterns defined in BaseService
+- Use NVIDIA SMI for GPU monitoring and control
 
 Performance Considerations:
 - Metric collection is CPU-intensive
