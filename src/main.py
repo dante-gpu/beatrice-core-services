@@ -39,6 +39,7 @@ class DanteGPU:
         # Init UI
         self.app = QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)  # Keep running in system tray
+        self.apply_stylesheet() # Apply custom styles
         
         # Load main window
         self.main_window = MainWindow(self.gpu_handler, self.marketplace)
@@ -51,6 +52,87 @@ class DanteGPU:
         self.monitoring_timer.timeout.connect(self.update_stats)
         
         self.logger.info("DanteGPU initialization complete ✨")
+
+    def apply_stylesheet(self):
+        """Apply a dark theme stylesheet."""
+        stylesheet = """
+            QWidget {
+                background-color: #2b2b2b;
+                color: #f0f0f0;
+                font-size: 11pt;
+            }
+            QMainWindow {
+                background-color: #3c3f41;
+            }
+            QGroupBox {
+                background-color: #3c3f41;
+                border: 1px solid #555;
+                border-radius: 5px;
+                margin-top: 1ex; /* leave space at the top for the title */
+                font-weight: bold;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left; /* position at the top left */
+                padding: 0 3px;
+                background-color: #555;
+                color: #f0f0f0;
+                border-radius: 3px;
+            }
+            QLabel {
+                background-color: transparent; /* Ensure labels in groupbox have correct background */
+            }
+            QTableWidget {
+                background-color: #3c3f41;
+                border: 1px solid #555;
+                gridline-color: #555;
+                alternate-background-color: #45494c;
+            }
+            QHeaderView::section {
+                background-color: #555;
+                color: #f0f0f0;
+                padding: 4px;
+                border: 1px solid #3c3f41;
+                font-weight: bold;
+            }
+            QTableWidget::item {
+                padding: 5px;
+            }
+            QProgressBar {
+                border: 1px solid #555;
+                border-radius: 5px;
+                text-align: center;
+                background-color: #45494c;
+                color: #f0f0f0; /* Text color inside progress bar */
+            }
+            QProgressBar::chunk {
+                background-color: #007bff; /* Blue progress */
+                width: 10px; /* Width of the progress chunks */
+                margin: 0.5px;
+            }
+            QToolTip {
+                background-color: #2b2b2b;
+                color: #f0f0f0;
+                border: 1px solid #555;
+            }
+            QMenu {
+                background-color: #3c3f41;
+                border: 1px solid #555;
+            }
+            QMenu::item {
+                padding: 5px 20px;
+            }
+            QMenu::item:selected {
+                background-color: #007bff;
+            }
+            QMenu::separator {
+                height: 1px;
+                background: #555;
+                margin-left: 10px;
+                margin-right: 5px;
+            }
+        """
+        self.app.setStyleSheet(stylesheet)
 
     def setup_system_tray(self):
         """Setup that system tray drip"""
