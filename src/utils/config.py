@@ -29,6 +29,7 @@ class ConfigManager:
     def _create_default_config(self):
         """Create default configuration"""
         self.config = {
+            "log_level": "INFO", # Default log level (e.g., DEBUG, INFO, WARNING, ERROR)
             "autostart_minimized": False,
             "monitoring_interval": 1,
             "marketplace_url": "https://api.dantegpu.market", # TODO: Change to actual marketplace url this is mock url :////
@@ -55,4 +56,4 @@ class ConfigManager:
     def set(self, key: str, value: Any):
         """Set configuration value"""
         self.config[key] = value
-        self._save_config() 
+        self._save_config()

@@ -1,8 +1,8 @@
 import sys
 import logging
 from pathlib import Path
-from PyQt6.QtWidgets import QApplication, QSystemTrayIcon
-from PyQt6.QtGui import QIcon
+from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+from PyQt6.QtGui import QIcon, QAction
 from PyQt6.QtCore import QTimer
 
 from ui.main_window import MainWindow
@@ -66,7 +66,6 @@ class DanteGPU:
 
     def create_tray_menu(self):
         """Create that bussin tray menu fr fr"""
-        from PyQt6.QtWidgets import QMenu, QAction
         
         menu = QMenu()
         
