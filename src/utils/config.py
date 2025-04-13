@@ -1,7 +1,10 @@
 import json
 import os
+import logging # Import logging
 from pathlib import Path
 from typing import Any, Dict, Optional
+
+logger = logging.getLogger(__name__) # Setup logger for this module
 
 class ConfigManager:
     def __init__(self):
@@ -11,49 +14,52 @@ class ConfigManager:
         self._load_config()
         
     def _load_config(self):
-        """Load configuration file"""
         try:
             if not self.config_dir.exists():
-                self.config_dir.mkdir(parents=True)
+                logger.info(f"Creating config directory: {self.config_dir}")
+                self.config_dir.mkdir(parents=True, exist_ok=True) # Added exist_ok
                 
             if self.config_file.exists():
+                logger.info(f"Loading config from: {self.config_file}")
                 with open(self.config_file, "r") as f:
                     self.config = json.load(f)
             else:
+                logger.info("Config file not found, creating default config.")
                 self._create_default_config()
                 
+        except json.JSONDecodeError as e:
+             logger.error(f"Error decoding config file {self.config_file}: {e}. Creating default config.")
+             self._create_default_config()
         except Exception as e:
-            print(f"Error loading config: {e}")
+            logger.error(f"Error loading config: {e}. Creating default config.")
             self._create_default_config()
             
     def _create_default_config(self):
-        """Create default configuration"""
         self.config = {
-            "log_level": "INFO", # Default log level (e.g., DEBUG, INFO, WARNING, ERROR)
+            "log_level": "INFO", 
+            "monitoring_interval": 5, # Default to 5 seconds
             "autostart_minimized": False,
-            "monitoring_interval": 1,
-            "marketplace_url": "https://api.dantegpu.market", # TODO: Change to actual marketplace url this is mock url :////
+            "marketplace_url": "https://api.example.dantegpu.market", # Placeholder URL
             "gpu_settings": {
                 "power_limit": 100,
                 "memory_offset": 0,
                 "core_offset": 0
             }
         }
+        logger.info("Saving default configuration.")
         self._save_config()
         
     def _save_config(self):
-        """Save configuration to file"""
         try:
             with open(self.config_file, "w") as f:
                 json.dump(self.config, f, indent=4)
+            logger.debug(f"Configuration saved to {self.config_file}")
         except Exception as e:
-            print(f"Error saving config: {e}")
+            logger.error(f"Error saving config to {self.config_file}: {e}")
             
     def get(self, key: str, default: Any = None) -> Any:
-        """Get configuration value"""
         return self.config.get(key, default)
         
     def set(self, key: str, value: Any):
-        """Set configuration value"""
         self.config[key] = value
         self._save_config()

@@ -9,7 +9,6 @@ class MarketplaceConnector:
         self.connected = False
         
     async def connect(self):
-        """Connect to marketplace"""
         try:
             self.session = aiohttp.ClientSession()
             self.connected = True
@@ -19,31 +18,26 @@ class MarketplaceConnector:
             self.connected = False
             
     async def disconnect(self):
-        """Disconnect from marketplace"""
-        if self.session:
-            await self.session.close()
+        if self.session and not self.session.closed:
+             await self.session.close()
+        self.session = None
         self.connected = False
         self.logger.info("Disconnected from marketplace")
         
     async def get_earnings(self) -> float:
-        """Get total earnings"""
-        if not self.connected:
+        if not self.connected or not self.session:
+            self.logger.warning("Cannot get earnings, not connected to marketplace.")
             return 0.0
             
         # TODO: Implement actual marketplace integration @fybx
-
-
-
-
+        self.logger.warning("Marketplace get_earnings not implemented.")
         return 0.0
         
     async def update_gpu_status(self, gpu_stats: Dict):
-        """Update GPU status to marketplace"""
-        if not self.connected:
+        if not self.connected or not self.session:
+            self.logger.warning("Cannot update status, not connected to marketplace.")
             return
-        
-
-        
             
         # TODO: Implement status update to marketplace
-        pass 
+        self.logger.warning("Marketplace update_gpu_status not implemented.")
+        pass
