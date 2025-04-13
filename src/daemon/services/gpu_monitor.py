@@ -8,18 +8,43 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime, timezone 
 import psutil
 
+# --- Platform Specific Imports ---
 IS_MACOS = platform.system() == "Darwin"
+IS_WINDOWS = platform.system() == "Windows"
+IS_LINUX = platform.system() == "Linux" # Might be useful later
+
 NVIDIA_AVAILABLE = False
-if not IS_MACOS:
+WMI_AVAILABLE = False
+
+if IS_WINDOWS:
+    try:
+        import wmi
+        WMI_AVAILABLE = True
+    except ImportError:
+        logging.getLogger(__name__).warning("pywin32 library not found. WMI monitoring disabled on Windows.")
+        WMI_AVAILABLE = False
+    # Check for NVIDIA on Windows too
     try:
         import nvidia_smi
         NVIDIA_AVAILABLE = True
     except ImportError:
-        logging.getLogger(__name__).warning("nvidia-ml-py3 library not found. NVIDIA GPU monitoring disabled.")
+        logging.getLogger(__name__).warning("nvidia-ml-py3 library not found. NVIDIA GPU monitoring disabled on Windows.")
         NVIDIA_AVAILABLE = False
     except Exception as e:
-        logging.getLogger(__name__).error(f"Error importing or initializing nvidia-ml-py3: {e}")
+        logging.getLogger(__name__).error(f"Error importing nvidia-ml-py3 on Windows: {e}")
         NVIDIA_AVAILABLE = False
+
+elif IS_LINUX: # Check NVIDIA on Linux
+     try:
+        import nvidia_smi
+        NVIDIA_AVAILABLE = True
+     except ImportError:
+        logging.getLogger(__name__).warning("nvidia-ml-py3 library not found. NVIDIA GPU monitoring disabled on Linux.")
+        NVIDIA_AVAILABLE = False
+     except Exception as e:
+        logging.getLogger(__name__).error(f"Error importing nvidia-ml-py3 on Linux: {e}")
+        NVIDIA_AVAILABLE = False
+# No specific checks needed for macOS here as it uses different methods
 
 try:
     from ..service import BaseService, ServiceHealth, ServiceState 
@@ -42,8 +67,12 @@ class GPUMonitorService(BaseService):
         self.update_queue: Optional[queue.Queue] = None 
         
         self.nvidia_initialized = False
+        self.wmi_connection = None
+
         if NVIDIA_AVAILABLE:
              self._initialize_nvidia_smi()
+        if WMI_AVAILABLE:
+             self._initialize_wmi()
 
     def set_update_queue(self, queue: queue.Queue): 
         self.update_queue = queue
@@ -61,6 +90,16 @@ class GPUMonitorService(BaseService):
                  self.logger.error(f"GPUMonitorService failed to initialize NVIDIA SMI: {e.value}")
             else:
                  self.logger.error(f"GPUMonitorService failed to initialize NVIDIA SMI: {e}")
+                 
+    def _initialize_wmi(self):
+         if not WMI_AVAILABLE: return
+         try:
+              self.wmi_connection = wmi.WMI(namespace="root\\cimv2")
+              self.logger.info("WMI connection established successfully.")
+         except Exception as e:
+              self.logger.error(f"Failed to establish WMI connection: {e}", exc_info=True)
+              self.wmi_connection = None
+              WMI_AVAILABLE = False # Mark as unavailable if init fails
 
     def _run_command(self, cmd_list):
         try:
@@ -94,7 +133,7 @@ class GPUMonitorService(BaseService):
             mem_info = psutil.virtual_memory()
 
             for idx, gpu_data in enumerate(display_info):
-                name = gpu_data.get("_name") if IS_MACOS else gpu_data.get("sppci_model") # Use IS_MACOS flag
+                name = gpu_data.get("_name") if IS_MACOS else gpu_data.get("sppci_model") 
                 if not name: name = gpu_data.get("sppci_model", "Unknown GPU")
 
                 gpu_stats = {
@@ -174,6 +213,38 @@ class GPUMonitorService(BaseService):
         except Exception as e:
             self.logger.error(f"Unexpected error getting NVIDIA stats: {e}", exc_info=True)
         return gpus
+        
+    def _get_windows_wmi_gpu_info(self) -> List[Dict[str, Any]]:
+         """Get additional GPU info using WMI on Windows."""
+         gpus_wmi = []
+         if not WMI_AVAILABLE or not self.wmi_connection:
+              return gpus_wmi
+              
+         try:
+              # Query common video controller properties
+              # Note: WMI property names can vary. These are common ones.
+              # Might need specific queries for NVIDIA performance counters if available via WMI.
+              wql = "SELECT Name, AdapterRAM, DriverVersion, VideoProcessor, CurrentHorizontalResolution, CurrentVerticalResolution, CurrentRefreshRate FROM Win32_VideoController"
+              for idx, controller in enumerate(self.wmi_connection.query(wql)):
+                   wmi_data = {
+                        "id": idx, # WMI might not have a direct index matching NVML, correlation needed later
+                        "wmi_name": getattr(controller, "Name", None),
+                        "wmi_adapter_ram": getattr(controller, "AdapterRAM", None), # Often in bytes
+                        "wmi_driver_version": getattr(controller, "DriverVersion", None),
+                        "wmi_video_processor": getattr(controller, "VideoProcessor", None),
+                        "wmi_resolution": f"{getattr(controller, 'CurrentHorizontalResolution', '?')}x{getattr(controller, 'CurrentVerticalResolution', '?')}",
+                        "wmi_refresh_rate": getattr(controller, "CurrentRefreshRate", None),
+                   }
+                   # Add more queries here for performance counters if needed/available
+                   # e.g., querying Win32_PerfFormattedData_Counters_GPU* classes (availability varies)
+                   gpus_wmi.append(wmi_data)
+                   
+         except Exception as e:
+              self.logger.error(f"Error querying WMI for GPU info: {e}", exc_info=True)
+              # Optionally disable WMI if queries consistently fail
+              # self.wmi_connection = None 
+              # WMI_AVAILABLE = False
+         return gpus_wmi
 
     async def _collect_and_send_stats(self):
         async with self._collection_lock: 
@@ -184,18 +255,31 @@ class GPUMonitorService(BaseService):
                 "gpus": []
             }
             
+            gpu_list = []
             if IS_MACOS:
                 gpu_list = self._get_macos_gpu_info()
-                stats_data["gpus"] = gpu_list
-                stats_data["active_gpus"] = len(gpu_list) if any(g.get("model") != "System Stats" for g in gpu_list) else 0
-            elif NVIDIA_AVAILABLE and self.nvidia_initialized:
-                gpu_list = self._get_nvidia_gpu_info()
-                stats_data["gpus"] = gpu_list
-                stats_data["active_gpus"] = len(gpu_list)
+            elif IS_WINDOWS:
+                 if NVIDIA_AVAILABLE and self.nvidia_initialized:
+                      gpu_list = self._get_nvidia_gpu_info()
+                 # Try to get WMI info and merge/add it
+                 wmi_gpu_list = self._get_windows_wmi_gpu_info()
+                 if wmi_gpu_list:
+                      if gpu_list: # Try to merge based on name/ID if NVML data exists
+                           for nvml_gpu in gpu_list:
+                                # Simple merge attempt by matching name (might be fragile)
+                                matching_wmi = next((wmi_gpu for wmi_gpu in wmi_gpu_list if wmi_gpu.get("wmi_name") and wmi_gpu["wmi_name"] in nvml_gpu.get("model", "")), None)
+                                if matching_wmi:
+                                     nvml_gpu.update(matching_wmi) # Add WMI fields to NVML dict
+                      else: # If only WMI data is available
+                           gpu_list = wmi_gpu_list 
+            elif IS_LINUX and NVIDIA_AVAILABLE and self.nvidia_initialized:
+                 gpu_list = self._get_nvidia_gpu_info()
             else:
                 self.logger.warning("No compatible GPU monitoring available for stat collection.")
                 pass 
 
+            stats_data["gpus"] = gpu_list
+            stats_data["active_gpus"] = len(gpu_list) if any(g.get("model") != "System Stats" for g in gpu_list) else 0
             self._last_collection_time = datetime.now(timezone.utc)
             
             if self.update_queue:
@@ -268,6 +352,9 @@ class GPUMonitorService(BaseService):
             except Exception as e:
                 self.logger.error(f"Error during NVIDIA SMI shutdown in GPUMonitorService: {e}")
                 
+        # No specific cleanup needed for WMI connection object
+        self.wmi_connection = None
+                
         self.state = ServiceState.STOPPED
         self.logger.info(f"Service {self.name} stopped.")
         return True
@@ -294,7 +381,10 @@ class GPUMonitorService(BaseService):
             "monitoring_interval": self.monitoring_interval,
             "nvidia_available": NVIDIA_AVAILABLE,
             "nvidia_initialized": self.nvidia_initialized,
-            "is_macos": IS_MACOS
+            "wmi_available": WMI_AVAILABLE,
+            "is_macos": IS_MACOS,
+            "is_windows": IS_WINDOWS,
+            "is_linux": IS_LINUX
         }
         
         return health

@@ -99,8 +99,38 @@ class GPUStatusDialog(QDialog):
         group_layout.addWidget(QLabel(bus), row, 1)
         row += 1
         group_layout.addWidget(QLabel("Metal Family:"), row, 0)
-        group_layout.addWidget(QLabel(metal), row, 1)
+        group_layout.addWidget(QLabel(metal), row, 1) # Relevant for macOS
         row += 1
+        
+        # Add WMI specific fields if present
+        wmi_driver = gpu_data.get('wmi_driver_version')
+        wmi_processor = gpu_data.get('wmi_video_processor')
+        wmi_ram_bytes = gpu_data.get('wmi_adapter_ram')
+        wmi_resolution = gpu_data.get('wmi_resolution')
+        wmi_refresh = gpu_data.get('wmi_refresh_rate')
+        
+        if wmi_driver:
+             group_layout.addWidget(QLabel("Driver (WMI):"), row, 0)
+             group_layout.addWidget(QLabel(wmi_driver), row, 1)
+             row += 1
+        if wmi_processor:
+             group_layout.addWidget(QLabel("Processor (WMI):"), row, 0)
+             group_layout.addWidget(QLabel(wmi_processor), row, 1)
+             row += 1
+        if wmi_ram_bytes:
+             group_layout.addWidget(QLabel("Adapter RAM (WMI):"), row, 0)
+             group_layout.addWidget(QLabel(format_bytes(wmi_ram_bytes)), row, 1)
+             row += 1
+        if wmi_resolution and wmi_resolution != '?x?':
+             group_layout.addWidget(QLabel("Resolution (WMI):"), row, 0)
+             group_layout.addWidget(QLabel(wmi_resolution), row, 1)
+             row += 1
+        if wmi_refresh:
+             group_layout.addWidget(QLabel("Refresh Rate (WMI):"), row, 0)
+             group_layout.addWidget(QLabel(f"{wmi_refresh} Hz"), row, 1)
+             row += 1
+             
+        # Standard metrics
         group_layout.addWidget(QLabel("Temperature:"), row, 0)
         group_layout.addWidget(QLabel(temp_str), row, 1)
         row += 1
