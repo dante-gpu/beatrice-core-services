@@ -37,9 +37,10 @@ class ConfigManager:
     def _create_default_config(self):
         self.config = {
             "log_level": "INFO", 
-            "monitoring_interval": 5, # Default to 5 seconds
+            "monitoring_interval": 5, 
             "autostart_minimized": False,
-            "marketplace_url": "https://api.example.dantegpu.market", # Placeholder URL
+            "wallet_address": "", # Add default empty wallet address
+            "marketplace_url": "https://api.example.dantegpu.market", 
             "gpu_settings": {
                 "power_limit": 100,
                 "memory_offset": 0,

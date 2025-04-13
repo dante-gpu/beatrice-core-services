@@ -1,11 +1,11 @@
 import logging
 import platform 
-import webbrowser 
-import urllib.parse 
+import webbrowser # Re-add webbrowser
+import urllib.parse # Re-add urllib.parse
 from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout, QLabel, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QGroupBox, QHBoxLayout,
-                             QProgressBar, QApplication, QPushButton) # Add QPushButton
-from PyQt6.QtCore import Qt
+                             QProgressBar, QApplication, QPushButton) # Re-add QPushButton
+from PyQt6.QtCore import Qt, QTimer # Ensure QTimer is imported
 
 try:
     from ..utils.helpers import format_bytes
@@ -72,10 +72,9 @@ class MainWindow(QMainWindow):
         summary_layout.addStretch() 
         summary_layout.addWidget(self.total_earnings_label)
         
-        # Add Connect Wallet Button to summary layout
+        # Re-add Connect Wallet Button to summary layout
         self.connect_wallet_button = QPushButton("🔗 Connect Phantom")
         self.connect_wallet_button.clicked.connect(self.connect_phantom)
-        # Optional: Add some styling or fixed width
         self.connect_wallet_button.setStyleSheet("padding: 5px 10px;") 
         summary_layout.addWidget(self.connect_wallet_button)
         
@@ -110,19 +109,11 @@ class MainWindow(QMainWindow):
         self.logger.info("MainWindow UI initialized.")
 
     def connect_phantom(self):
-        self.logger.info("Attempting to initiate Phantom connection...")
+        self.logger.info("Attempting to initiate Phantom connection via URI...")
         
-        # --- Construct the Phantom deeplink URI ---
-        # Based on common patterns, but might need adjustment
-        # We need a way for Phantom to know which app is connecting.
-        # Using a placeholder URL for the app. A real URL or domain is better.
-        app_url = urllib.parse.quote("https://dantegpu.app") 
-        # Phantom might require a redirect URL, even if we can't easily capture it
-        # Using a simple localhost URL as a placeholder redirect.
-        redirect_url = urllib.parse.quote("dantegpu://connection-success") 
-        
-        # Construct the URI (v1 connect is common)
-        # Note: Cluster info might also be needed depending on Phantom's requirements
+        app_url = urllib.parse.quote("https://dantegpu.app") # Placeholder app URL
+        redirect_url = urllib.parse.quote("dantegpu://connection-success") # Placeholder redirect
+        # Construct the URI - Corrected parameter separation with '&'
         phantom_uri = f"phantom://v1/connect?app_url={app_url}&redirect_link={redirect_url}"
         
         self.logger.info(f"Opening URI: {phantom_uri}")
@@ -131,25 +122,18 @@ class MainWindow(QMainWindow):
             opened = webbrowser.open(phantom_uri)
             if not opened:
                  self.logger.warning("webbrowser.open() returned False. OS might not have handler for phantom://")
-                 # Optionally show message to user
-                 # QMessageBox.warning(self, "Connection Failed", "Could not automatically open Phantom. Ensure it is installed and configured to handle connection requests.")
+                 # Consider showing a QMessageBox here to inform the user
             else:
-                 # We can't confirm connection success here, just that the request was sent.
                  self.logger.info("Phantom connection request initiated via browser/OS.")
-                 # Optionally disable button temporarily or show status
                  self.connect_wallet_button.setText("Request Sent...")
                  self.connect_wallet_button.setEnabled(False)
-                 # Re-enable after a delay? Or require app restart?
                  QTimer.singleShot(5000, lambda: (
                       self.connect_wallet_button.setText("🔗 Connect Phantom"), 
                       self.connect_wallet_button.setEnabled(True)
                  ))
-
         except Exception as e:
             self.logger.error(f"Failed to open Phantom URI: {e}", exc_info=True)
-            # Optionally show message to user
-            # QMessageBox.critical(self, "Error", f"Could not open Phantom connection URI: {e}")
-
+            # Consider showing a QMessageBox here
 
     def update_stats(self, stats):
         if not stats or 'gpus' not in stats:
