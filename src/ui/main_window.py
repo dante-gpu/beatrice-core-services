@@ -74,7 +74,10 @@ class MainWindow(QMainWindow):
         
         # Re-add Connect Wallet Button to summary layout
         self.connect_wallet_button = QPushButton("🔗 Connect Phantom")
-        self.connect_wallet_button.clicked.connect(self.connect_phantom)
+        # Connect to the method in the main DanteGPU instance (passed via parent or signal?)
+        # Easiest is to connect it from main.py after MainWindow is created.
+        # We'll add a placeholder method here and connect it in main.py
+        # self.connect_wallet_button.clicked.connect(self.handle_connect_wallet_click) 
         self.connect_wallet_button.setStyleSheet("padding: 5px 10px;") 
         summary_layout.addWidget(self.connect_wallet_button)
         
@@ -134,6 +137,11 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.logger.error(f"Failed to open Phantom URI: {e}", exc_info=True)
             # Consider showing a QMessageBox here
+            
+    # Placeholder - actual connection logic is now in main.py's open_wallet_connect_page
+    # def handle_connect_wallet_click(self):
+    #      # This method is no longer needed here if connected from main.py
+    #      pass
 
     def update_stats(self, stats):
         if not stats or 'gpus' not in stats:

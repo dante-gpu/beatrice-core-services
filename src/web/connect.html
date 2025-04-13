@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connect Wallet - DanteGPU</title>
+    <style>
+        body { 
+            font-family: sans-serif; 
+            background-color: #2b2b2b; 
+            color: #f0f0f0; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            min-height: 100vh; 
+            margin: 0;
+            flex-direction: column;
+        }
+        button { 
+            padding: 10px 20px; 
+            font-size: 16px; 
+            cursor: pointer; 
+            background-color: #007bff; 
+            color: white; 
+            border: none; 
+            border-radius: 5px; 
+            margin-bottom: 15px;
+        }
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+        }
+        #status { 
+            margin-top: 15px; 
+            font-size: 14px;
+            text-align: center;
+        }
+        #wallet-address {
+            font-weight: bold;
+            word-break: break-all; /* Prevent long addresses from overflowing */
+            max-width: 90%;
+        }
+        .success { color: #28a745; }
+        .error { color: #dc3545; }
+    </style>
+    <!-- Wallet Adapter Core -->
+    <script src="https://unpkg.com/@solana/wallet-adapter-base@latest/lib/index.iife.js"></script>
+    <!-- Wallet Adapter Solana Wallets (includes Phantom) -->
+    <script src="https://unpkg.com/@solana/wallet-adapter-wallets@latest/lib/index.iife.js"></script>
+    <!-- Solana Web3 JS -->
+    <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+</head>
+<body>
+
+    <h1>Connect Your Phantom Wallet</h1>
+    <button id="connectButton">Connect Wallet</button>
+    <div id="status">Please connect your wallet to continue.</div>
+    <div id="wallet-address"></div>
+
+    <script>
+        const connectButton = document.getElementById('connectButton');
+        const statusDiv = document.getElementById('status');
+        const walletAddressDiv = document.getElementById('wallet-address');
+        
+        // Ensure libraries are loaded
+        const { WalletAdapterBase, WalletNotConnectedError } = window.WalletAdapterBase;
+        const { PhantomWalletAdapter } = window.WalletAdapterWallets;
+        const { Connection, clusterApiUrl } = window.solanaWeb3;
+
+        let walletPublicKey = null;
+        let walletAdapter = null;
+
+        // Initialize Phantom adapter
+        try {
+            walletAdapter = new PhantomWalletAdapter();
+        } catch (error) {
+            console.error("Error initializing Phantom adapter:", error);
+            statusDiv.textContent = "Error initializing wallet adapter. Is Phantom installed?";
+            statusDiv.className = 'error';
+            connectButton.disabled = true;
+        }
+
+        // --- Wallet Event Listeners ---
+        if (walletAdapter) {
+            walletAdapter.on('connect', (publicKey) => {
+                walletPublicKey = publicKey;
+                console.log('Wallet connected:', publicKey.toBase58());
+                statusDiv.textContent = 'Wallet connected successfully!';
+                statusDiv.className = 'success';
+                walletAddressDiv.textContent = `Address: ${publicKey.toBase58()}`;
+                connectButton.textContent = 'Disconnect Wallet';
+                connectButton.disabled = false;
+                // Send address back to Python server
+                sendAddressToServer(publicKey.toBase58());
+            });
+
+            walletAdapter.on('disconnect', () => {
+                console.log('Wallet disconnected');
+                walletPublicKey = null;
+                statusDiv.textContent = 'Wallet disconnected.';
+                statusDiv.className = '';
+                walletAddressDiv.textContent = '';
+                connectButton.textContent = 'Connect Wallet';
+                connectButton.disabled = false;
+            });
+
+            walletAdapter.on('error', (error) => {
+                console.error('Wallet adapter error:', error);
+                statusDiv.textContent = `Wallet Error: ${error.message || 'Unknown error'}`;
+                statusDiv.className = 'error';
+                connectButton.disabled = false; // Re-enable button on error
+            });
+        }
+
+        // --- Button Click Handler ---
+        connectButton.onclick = async () => {
+            if (!walletAdapter) {
+                statusDiv.textContent = "Wallet adapter not initialized.";
+                statusDiv.className = 'error';
+                return;
+            }
+
+            connectButton.disabled = true; // Disable button during action
+
+            if (walletAdapter.connected && walletPublicKey) {
+                // Disconnect
+                try {
+                    statusDiv.textContent = 'Disconnecting...';
+                    statusDiv.className = '';
+                    await walletAdapter.disconnect();
+                } catch (error) {
+                    console.error('Error disconnecting:', error);
+                    statusDiv.textContent = `Error disconnecting: ${error.message}`;
+                    statusDiv.className = 'error';
+                    connectButton.disabled = false; // Re-enable on error
+                }
+            } else {
+                // Connect
+                try {
+                    statusDiv.textContent = 'Connecting... Please approve in Phantom.';
+                    statusDiv.className = '';
+                    await walletAdapter.connect();
+                    // 'connect' event handler will update UI and send data
+                } catch (error) {
+                    console.error('Error connecting:', error);
+                    // Error handling is mostly done by the 'error' event listener
+                    // But we can update status here too for immediate feedback
+                    statusDiv.textContent = `Connection failed: ${error.message || 'User rejected or error occurred.'}`;
+                    statusDiv.className = 'error';
+                    connectButton.disabled = false; // Re-enable button on error
+                }
+            }
+        };
+
+        // --- Function to send address to Python server ---
+        async function sendAddressToServer(address) {
+            try {
+                const response = await fetch('/callback', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ walletAddress: address }),
+                });
+                const result = await response.json();
+                if (response.ok && result.status === 'success') {
+                    console.log('Address successfully sent to server.');
+                    statusDiv.textContent = 'Wallet connected & address sent to app!';
+                    // Optionally close window or show success message
+                    // window.close(); // May not work depending on browser settings
+                } else {
+                    console.error('Server error receiving address:', result.message);
+                    statusDiv.textContent = `Wallet connected, but error sending address to app: ${result.message}`;
+                    statusDiv.className = 'error';
+                }
+            } catch (error) {
+                console.error('Network error sending address:', error);
+                statusDiv.textContent = `Wallet connected, but network error sending address to app: ${error.message}`;
+                statusDiv.className = 'error';
+            }
+        }
+
+        // Initial check if already connected (might happen if page is refreshed)
+        // This part is less reliable without full adapter state management
+        if (walletAdapter && walletAdapter.publicKey) {
+             console.log("Adapter already has public key on load:", walletAdapter.publicKey.toBase58());
+             // Manually trigger connect logic if needed, or assume user needs to reconnect
+             // For simplicity, we'll require user to click connect again.
+        } else if (!walletAdapter) {
+             connectButton.disabled = true; // Disable if adapter failed init
+        }
+
+    </script>
+</body>
+</html>
